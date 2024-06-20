@@ -1,9 +1,9 @@
-using CLONETRELLOBACK.Data;
 using CLONETRELLOBACK.models;
+using CLONETRELLOBACK.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Task = CLONETRELLOBACK.models.Tasks;
-
 
 namespace CLONETRELLOBACK.Controllers
 {
@@ -11,11 +11,11 @@ namespace CLONETRELLOBACK.Controllers
     [ApiController]
     public class TaskController : ControllerBase
     {
-        private readonly TaskContext _context;
+        private readonly TasksDao _tasksDao;
 
-        public TaskController(TaskContext context)
+        public TaskController(TasksDao tasksDao)
         {
-            _context = context;
+            _tasksDao = tasksDao;
         }
 
         // GET: api/task
@@ -23,42 +23,40 @@ namespace CLONETRELLOBACK.Controllers
         [Route("")]
         public async Task<ActionResult<IEnumerable<Task>>> GetTasks()
         {
-            return await _context.Tasks.ToListAsync();
+            var tasks = await _tasksDao.GetTasks();
+            return Ok(tasks);
         }
 
         // GET: api/task/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<models.Tasks>> GetTask(int id)
+        public async Task<ActionResult<Task>> GetTask(int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
+            var task = await _tasksDao.GetTask(id);
+
             if (task == null)
             {
                 return NotFound();
             }
-            return task;
+
+            return Ok(task);
         }
 
         // PUT: api/task/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTask(int id,Task task)
+        public async Task<IActionResult> PutTask(int id, Task task)
         {
-            task.Id = id;
-           
             if (id != task.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(task).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _tasksDao.UpdateTask(task);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
             {
-                if (!TaskExists(id))
+                if (!_tasksDao.TaskExists(id))
                 {
                     return NotFound();
                 }
@@ -72,36 +70,31 @@ namespace CLONETRELLOBACK.Controllers
         }
 
         // POST: api/task
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         [Route("")]
         public async Task<ActionResult<Task>> PostTask(Task task)
         {
-            _context.Tasks.Add(task);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetTask", new { id = task.Id }, task);
+            await _tasksDao.AddTask(task);
+            return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
         }
 
         // DELETE: api/task/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
+            var task = await _tasksDao.GetTask(id);
             if (task == null)
             {
                 return NotFound();
             }
 
-            _context.Tasks.Remove(task);
-            await _context.SaveChangesAsync();
+            var result = await _tasksDao.DeleteTask(id);
+            if (!result)
+            {
+                return NotFound();
+            }
 
             return NoContent();
-        }
-
-        private bool TaskExists(int id)
-        {
-            return _context.Tasks.Any(e => e.Id == id);
         }
     }
 }

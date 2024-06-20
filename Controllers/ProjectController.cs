@@ -1,7 +1,8 @@
-using CLONETRELLOBACK.Data;
 using CLONETRELLOBACK.models;
+using CLONETRELLOBACK.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace CLONETRELLOBACK.Controllers
 {
@@ -9,54 +10,52 @@ namespace CLONETRELLOBACK.Controllers
     [ApiController]
     public class ProjectController : ControllerBase
     {
-        private readonly TaskContext _context;
+        private readonly ProjectDao _projectDao;
 
-        public ProjectController(TaskContext context)
+        public ProjectController(ProjectDao projectDao)
         {
-            _context = context;
+            _projectDao = projectDao;
         }
 
         // GET: api/project
         [HttpGet]
         [Route("")]
-        public async Task<ActionResult<IEnumerable<Projects>>> GetProject()
+        public async Task<ActionResult<IEnumerable<Projects>>> GetProjects()
         {
-            return await _context.Projects.ToListAsync();
+            var projects = await _projectDao.GetProjects();
+            return Ok(projects);
         }
 
         // GET: api/project/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Projects>> GetProject(int id)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var project = await _projectDao.GetProject(id);
+
             if (project == null)
             {
                 return NotFound();
             }
-            return project;
+
+            return Ok(project);
         }
 
         // PUT: api/project/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProject(int id, Projects project)
         {
-            project.Id = id;
-
             if (id != project.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(project).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _projectDao.UpdateProject(project);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
             {
-                if (!ProjectExists(id))
+                if (!_projectDao.ProjectExists(id))
                 {
                     return NotFound();
                 }
@@ -70,36 +69,31 @@ namespace CLONETRELLOBACK.Controllers
         }
 
         // POST: api/project
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         [Route("")]
         public async Task<ActionResult<Projects>> PostProject(Projects project)
         {
-            _context.Projects.Add(project);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetProject", new { id = project.Id }, project);
+            await _projectDao.AddProject(project);
+            return CreatedAtAction(nameof(GetProject), new { id = project.Id }, project);
         }
 
         // DELETE: api/project/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProject(int id)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var project = await _projectDao.GetProject(id);
             if (project == null)
             {
                 return NotFound();
             }
 
-            _context.Projects.Remove(project);
-            await _context.SaveChangesAsync();
+            var result = await _projectDao.DeleteProject(id);
+            if (!result)
+            {
+                return NotFound();
+            }
 
             return NoContent();
-        }
-
-        private bool ProjectExists(int id)
-        {
-            return _context.Projects.Any(e => e.Id == id);
         }
     }
 }

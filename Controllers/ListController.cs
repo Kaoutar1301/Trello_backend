@@ -1,7 +1,8 @@
-using CLONETRELLOBACK.Data;
 using CLONETRELLOBACK.models;
+using CLONETRELLOBACK.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace CLONETRELLOBACK.Controllers
 {
@@ -9,11 +10,11 @@ namespace CLONETRELLOBACK.Controllers
     [ApiController]
     public class ListController : ControllerBase
     {
-        private readonly TaskContext _context;
+        private readonly ListDao _listDao;
 
-        public ListController(TaskContext context)
+        public ListController(ListDao listDao)
         {
-            _context = context;
+            _listDao = listDao;
         }
 
         // GET: api/list
@@ -21,42 +22,40 @@ namespace CLONETRELLOBACK.Controllers
         [Route("")]
         public async Task<ActionResult<IEnumerable<Lists>>> GetLists()
         {
-            return await _context.Lists.ToListAsync();
+            var lists = await _listDao.GetLists();
+            return Ok(lists);
         }
 
         // GET: api/list/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Lists>> GetList(int id)
         {
-            var list = await _context.Lists.FindAsync(id);
+            var list = await _listDao.GetList(id);
+
             if (list == null)
             {
                 return NotFound();
             }
-            return list;
+
+            return Ok(list);
         }
 
         // PUT: api/list/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutList(int id, Lists list)
         {
-            list.Id = id;
-
             if (id != list.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(list).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _listDao.UpdateList(list);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
             {
-                if (!ListExists(id))
+                if (!_listDao.ListExists(id))
                 {
                     return NotFound();
                 }
@@ -70,36 +69,31 @@ namespace CLONETRELLOBACK.Controllers
         }
 
         // POST: api/list
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         [Route("")]
         public async Task<ActionResult<Lists>> PostList(Lists list)
         {
-            _context.Lists.Add(list);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetList", new { id = list.Id }, list);
+            await _listDao.AddList(list);
+            return CreatedAtAction(nameof(GetList), new { id = list.Id }, list);
         }
 
         // DELETE: api/list/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteList(int id)
         {
-            var list = await _context.Lists.FindAsync(id);
+            var list = await _listDao.GetList(id);
             if (list == null)
             {
                 return NotFound();
             }
 
-            _context.Lists.Remove(list);
-            await _context.SaveChangesAsync();
+            var result = await _listDao.DeleteList(id);
+            if (!result)
+            {
+                return NotFound();
+            }
 
             return NoContent();
-        }
-
-        private bool ListExists(int id)
-        {
-            return _context.Lists.Any(e => e.Id == id);
         }
     }
 }
